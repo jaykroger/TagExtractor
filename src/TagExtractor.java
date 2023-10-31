@@ -2,7 +2,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.io.*;
 import java.util.Scanner;
@@ -46,11 +49,16 @@ public class TagExtractor extends JFrame
 
 
     // Program logic variables
-    HashMap<String, Integer> tagsMap = new HashMap<String, Integer>();
+
     File selectedFile;
     Path file;
-
+    File workingDirectory = new File(System.getProperty("user.dir"));
+    Path outputFile = Paths.get(workingDirectory.getPath() + "\\src\\Tags_Data.txt");
     Path stopWordsFile = Path.of("src/stopWords.txt");
+    HashMap<String, Integer> tagsMap = new HashMap<>();
+    ArrayList<String> tagWords = new ArrayList<>();
+    ArrayList<String> stopWords = new ArrayList<>();
+
 
     public TagExtractor()
     {
@@ -148,7 +156,7 @@ public class TagExtractor extends JFrame
         exportTagsButton.setFont(interfaceLabelFont);
         exportTagsButton.setForeground(interfaceLabelColor);
         exportTagsButton.setBackground(interfaceButtonColor);
-        exportTagsButton.addActionListener((ActionEvent ae) -> {});
+        exportTagsButton.addActionListener((ActionEvent ae) -> writeTagsFile());
 
         clearButton = new JButton("Clear");
         clearButton.setFont(interfaceLabelFont);
@@ -210,17 +218,82 @@ public class TagExtractor extends JFrame
     private void scanFile()
     {
         file = Path.of(fileTextField.getText());
+        loadStopWords(stopWordsFile);
 
         try {
             Scanner fileScanner = new Scanner(file);
+
             while (fileScanner.hasNext())
             {
-            String nextWord = fileScanner.next();
-            String regulatedWord = regulateString(nextWord);
-            textArea.append(regulatedWord + "\n");
+                String nextWord = fileScanner.next();
+                String regulatedWord = regulateString(nextWord);
+                tagWords.add(regulatedWord);
+            }
+            for (String s : tagWords)
+            {
+                if (!stopWords.contains(s))
+                {
+                    if (tagsMap.containsKey(s))
+                    {
+                        tagsMap.put(s, tagsMap.get(s) + 1);
+                    }
+                    else
+                    {
+                        tagsMap.put(s, 1);
+                    }
+                }
+
+            }
+
+            for (String tag : tagsMap.keySet())
+            {
+                textArea.append(tag + ", " + tagsMap.get(tag) + "\n");
             }
         }
         catch (IOException e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void writeTagsFile()
+    {
+        try
+        {
+            OutputStream out = new BufferedOutputStream(Files.newOutputStream(outputFile, CREATE));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out));
+
+            for(String t : tagsMap.keySet())
+            {
+                writer.write(t, 0, t.length());
+                writer.write(", ");
+                writer.write(String.valueOf(tagsMap.get(t)));
+                writer.newLine();
+            }
+
+            writer.close();
+            JOptionPane.showMessageDialog(null, "Tags successfully exported.", "Export Successful,", JOptionPane.OK_OPTION);
+
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadStopWords(Path p)
+    {
+        try
+        {
+            Scanner fileScanner = new Scanner(p);
+
+            while (fileScanner.hasNext())
+            {
+                String nextWord = fileScanner.next();
+                stopWords.add(nextWord);
+                System.out.println(nextWord);
+            }
+
+        } catch (IOException e)
         {
             throw new RuntimeException(e);
         }
