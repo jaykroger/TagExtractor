@@ -5,6 +5,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.io.*;
+import java.util.Scanner;
 
 
 import static java.nio.file.StandardOpenOption.CREATE;
@@ -38,7 +39,9 @@ public class TagExtractor extends JFrame
 
     // Button Panel
     JPanel buttonPanel;
+    JButton scanButton;
     JButton exportTagsButton;
+    JButton clearButton;
     JButton quitButton;
 
 
@@ -46,6 +49,8 @@ public class TagExtractor extends JFrame
     HashMap<String, Integer> tagsMap = new HashMap<String, Integer>();
     File selectedFile;
     Path file;
+
+    Path stopWordsFile = Path.of("src/stopWords.txt");
 
     public TagExtractor()
     {
@@ -58,6 +63,9 @@ public class TagExtractor extends JFrame
         createInterfacePanel();
         mainPanel.add(interfacePanel, BorderLayout.CENTER);
 
+        createButtonPanel();
+        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+
         add(mainPanel);
     }
 
@@ -66,18 +74,20 @@ public class TagExtractor extends JFrame
         headerPanel = new JPanel();
         headerPanel.setBackground(headerBackgroundColor);
         headerPanel.setLayout(new GridBagLayout());
+        Dimension headerSize = new Dimension(1080, 100);
+        headerPanel.setPreferredSize(headerSize);
 
         header = new JLabel("Tag Extractor");
         header.setFont(headerFont);
         header.setForeground(headerLabelColor);
 
-        GridBagConstraints c = new GridBagConstraints();
-        c.anchor = GridBagConstraints.CENTER;
-        c.insets = new Insets(5, 5, 5, 5);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.anchor = GridBagConstraints.CENTER;
+        gbc.insets = new Insets(5, 5, 5, 5);
 
-        c.gridx = 0;
-        c.gridy = 0;
-        headerPanel.add(header, c);
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        headerPanel.add(header, gbc);
     }
 
     private void createInterfacePanel()
@@ -99,17 +109,76 @@ public class TagExtractor extends JFrame
         selectFileButton.setBackground(interfaceButtonColor);
         selectFileButton.addActionListener((ActionEvent ae) -> getSelectedFile());
 
-        GridBagConstraints c = new GridBagConstraints();
-        c.anchor = GridBagConstraints.CENTER;
-        c.insets = new Insets(5, 5, 5, 5);
+        textArea = new JTextArea();
+        textArea.setRows(20);
+        textArea.setColumns(50);
 
-        c.gridx = 0;
-        c.gridy = 0;
-        interfacePanel.add(fileLabel, c);
-        c.gridx = 1;
-        interfacePanel.add(fileTextField, c);
-        c.gridx = 2;
-        interfacePanel.add(selectFileButton, c);
+        scrollPane = new JScrollPane(textArea);
+
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.insets = new Insets(5, 5, 20, 5);
+
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        interfacePanel.add(fileLabel, gbc);
+        gbc.gridx = 1;
+        interfacePanel.add(fileTextField, gbc);
+        gbc.gridx = 2;
+        interfacePanel.add(selectFileButton, gbc);
+        gbc.gridx = 1;
+        gbc.gridy = 2;
+        interfacePanel.add(scrollPane, gbc);
+    }
+
+    private void createButtonPanel()
+    {
+        buttonPanel = new JPanel();
+        buttonPanel.setBackground(interfaceBackgroundColor);
+        buttonPanel.setLayout(new GridBagLayout());
+
+        scanButton = new JButton("Scan");
+        scanButton.setFont(interfaceLabelFont);
+        scanButton.setForeground(interfaceLabelColor);
+        scanButton.setBackground(interfaceButtonColor);
+        scanButton.addActionListener((ActionEvent ae) -> scanFile());
+
+        exportTagsButton = new JButton("Export Tags");
+        exportTagsButton.setFont(interfaceLabelFont);
+        exportTagsButton.setForeground(interfaceLabelColor);
+        exportTagsButton.setBackground(interfaceButtonColor);
+        exportTagsButton.addActionListener((ActionEvent ae) -> {});
+
+        clearButton = new JButton("Clear");
+        clearButton.setFont(interfaceLabelFont);
+        clearButton.setForeground(interfaceLabelColor);
+        clearButton.setBackground(interfaceButtonColor);
+        clearButton.addActionListener((ActionEvent ae) ->
+        {
+            textArea.selectAll();
+            textArea.setText("");
+        });
+
+        quitButton = new JButton("Quit");
+        quitButton.setFont(interfaceLabelFont);
+        quitButton.setForeground(interfaceLabelColor);
+        quitButton.setBackground(interfaceButtonColor);
+        quitButton.addActionListener((ActionEvent ae) -> getQuitConfirm());
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.insets = new Insets(0, 5, 25, 5);
+
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        buttonPanel.add(scanButton, gbc);
+        gbc.gridx = 1;
+        buttonPanel.add(exportTagsButton, gbc);
+        gbc.gridx = 2;
+        buttonPanel.add(clearButton, gbc);
+        gbc.gridx = 3;
+        buttonPanel.add(quitButton, gbc);
     }
 
     private void getSelectedFile()
@@ -125,6 +194,42 @@ public class TagExtractor extends JFrame
                 file = selectedFile.toPath();
                 fileTextField.setText(String.valueOf(file));
             }
+    }
+
+    private void getQuitConfirm()
+    {
+        int quitConfirm;
+        quitConfirm = JOptionPane.showConfirmDialog(null, "Are you sure you want to quit?", "Exit", JOptionPane.YES_NO_OPTION);
+
+        if (quitConfirm == JOptionPane.YES_OPTION)
+        {
+            System.exit(0);
+        }
+    }
+
+    private void scanFile()
+    {
+        file = Path.of(fileTextField.getText());
+
+        try {
+            Scanner fileScanner = new Scanner(file);
+            while (fileScanner.hasNext())
+            {
+            String nextWord = fileScanner.next();
+            String regulatedWord = regulateString(nextWord);
+            textArea.append(regulatedWord + "\n");
+            }
+        }
+        catch (IOException e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String regulateString(String s)
+    {
+        String regulatedString = s.replaceAll("[^a-zA-Z]+", "");
+        return regulatedString.toLowerCase();
     }
 }
 
